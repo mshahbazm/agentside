@@ -26,6 +26,7 @@ import type { Hono } from 'hono';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { v4 as uuidv4 } from 'uuid';
 import type { AgentEvent } from '@mariozechner/pi-agent-core';
+import { env } from '../config/env.config';
 import { authenticateFromCookie } from '../auth';
 import {
   registerConnection,
@@ -427,8 +428,17 @@ export function setupWebSocket(app: Hono) {
       let socketId: string | null = null;
       let auth: iSocketAuthInfo | null = null;
 
+      // Cross-Site WebSocket Hijacking (CSWSH) defense. The browser attaches
+      // cookies to cross-origin WebSocket handshakes automatically, and the
+      // same-origin / CORS policy does NOT apply to WebSockets — so without an
+      // Origin check, any site the victim visits could open this socket with
+      // the victim's cookie and drive the agent as them. Validate Origin
+      // against the same allowlist as CORS before trusting the cookie.
+      const origin = c.req.header('origin');
+      const originAllowed = !origin || env.CORS_ORIGINS.includes(origin);
+
       const cookieHeader = c.req.header('cookie');
-      const jwt = authenticateFromCookie(cookieHeader);
+      const jwt = originAllowed ? authenticateFromCookie(cookieHeader) : null;
       if (jwt) {
         auth = {
           userId: jwt.sub,
@@ -439,6 +449,11 @@ export function setupWebSocket(app: Hono) {
 
       return {
         async onOpen(_event, ws) {
+          if (!originAllowed) {
+            console.warn(`[ws] rejecting connection from disallowed origin: ${origin}`);
+            ws.close(4003, 'Origin not allowed');
+            return;
+          }
           if (!auth) {
             console.warn('[ws] rejecting unauthenticated connection');
             ws.close(4001, 'Authentication required');

@@ -6,7 +6,7 @@ Your users type "create a job posting for a senior React dev and invite Sarah to
 
 Built on [pi-mono](https://github.com/badlogic/pi-mono)'s `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core` — a small, readable agent core — rather than a heavyweight framework.
 
-> **Status: young but production-proven.** This architecture runs in production inside [Cuee](https://cuee.ai) (an ATS); the core here is app-agnostic and ready to wire up. You plug in your app at four clearly-marked extension points — see [Wiring up your app](#wiring-up-your-app).
+> **Status: young but production-proven.** Built and maintained at [Airbase](https://airbasehq.com); this architecture runs in production inside [Cuee](https://cuee.ai) (an ATS). The core here is app-agnostic and ready to wire up — you plug in your app at four clearly-marked extension points, see [Wiring up your app](#wiring-up-your-app).
 
 ---
 
@@ -109,6 +109,15 @@ Your frontend subscribes once and derives all UI state from the `agent_event` st
 - **Identity comes from the JWT at upgrade**, not from anything the client sends later.
 - **Authorization happens in your API**, per request, exactly as it does for your normal frontend traffic. The agent's service key + `X-Act-As-User-Id` header means your API evaluates every call as that user.
 - **No filesystem tools.** The agent cannot read paths, run shell commands, or write files. The only filesystem-adjacent tool is `read_skill`, an in-memory lookup of skills registered at boot.
+- **WebSocket upgrades are Origin-checked** against `CORS_ORIGINS` before the cookie is trusted (cross-site WebSocket hijacking defense). JWTs are verified with a pinned algorithm; non-session token purposes are rejected.
+
+### Deploying safely (operator responsibilities)
+
+The code is open; your security rests on configuration, not on the code being secret. Three rules:
+
+1. **Keep `APP_API_URL` private.** The agent reaches your API with a service key (`x-internal-key`) plus an `X-Act-As-User-Id` header — that combination can act as *any* user. Your app's API must only accept those headers on an internal network it trusts, never from the public internet.
+2. **Treat `AUTH_SECRET` and `APP_API_KEY` as crown jewels.** Never commit them; rotate on any suspicion. They — not the source — are what protect the system.
+3. **Set `CORS_ORIGINS` to your real frontend origins only.** It gates both HTTP CORS and the WebSocket Origin check.
 
 ## Quick start
 

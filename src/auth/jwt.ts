@@ -29,7 +29,23 @@ export function extractAuthToken(cookieHeader: string | undefined): string | nul
  */
 export function verifyToken(token: string): iJwtPayload | null {
   try {
-    return jwt.verify(token, env.AUTH_SECRET) as iJwtPayload;
+    // Pin the algorithm to HS256 (symmetric, AUTH_SECRET). Without this,
+    // jsonwebtoken honors whatever `alg` the token header claims, which opens
+    // algorithm-confusion attacks. If your tokens are RS256/ES256, change this
+    // to the matching algorithm and a public key.
+    const payload = jwt.verify(token, env.AUTH_SECRET, {
+      algorithms: ['HS256'],
+    }) as iJwtPayload;
+
+    // Only full session tokens may drive the agent. If your auth issues other
+    // token kinds with the SAME secret (refresh tokens, email/portal links,
+    // password-reset tokens), they must NOT be accepted here — reject anything
+    // carrying a non-session `purpose`. Adjust the allowed set to your scheme.
+    if (payload.purpose && payload.purpose !== 'session') {
+      return null;
+    }
+
+    return payload;
   } catch {
     return null;
   }
