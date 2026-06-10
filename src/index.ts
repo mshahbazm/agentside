@@ -1,5 +1,5 @@
 /**
- * Command Service entry point — rebuilt on pi-mono (pi-ai + pi-agent-core).
+ * agentside entry point — rebuilt on pi-mono (pi-ai + pi-agent-core).
  *
  * Boots Hono, connects Mongo, loads skills into the in-memory index, spins up
  * the WebSocket server, and wires graceful shutdown. No processor / worker
@@ -28,7 +28,7 @@ app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: [env.ATS_FRONTEND_URL, env.ATS_ADMIN_URL],
+    origin: env.CORS_ORIGINS,
     credentials: true,
   }),
 );
@@ -37,7 +37,7 @@ app.get('/', async (c) => {
   const mongoStatus = getMongoDBStatus();
   return c.json({
     status: mongoStatus.connected ? 'ok' : 'degraded',
-    service: 'command-service',
+    service: 'agentside',
     timestamp: new Date().toISOString(),
     connections: getConnectionCount(),
     mongodb: {
@@ -54,12 +54,12 @@ const { injectWebSocket } = setupWebSocket(app);
 // ============================================================================
 
 async function shutdown() {
-  console.log('[command-service] shutting down');
+  console.log('[agentside] shutting down');
   stopHeartbeat();
   await closeAllConnections();
   await closeRedisConnection();
   await disconnectMongoDB();
-  console.log('[command-service] shutdown complete');
+  console.log('[agentside] shutdown complete');
   process.exit(0);
 }
 
@@ -70,17 +70,17 @@ process.on('SIGTERM', shutdown);
 // Boot
 // ============================================================================
 
-console.log('[command-service] connecting to MongoDB…');
+console.log('[agentside] connecting to MongoDB…');
 await connectMongoDB({ uri: env.MONGODB_URI });
 
-console.log('[command-service] loading skills…');
+console.log('[agentside] loading skills…');
 loadSkills();
 
-console.log(`[command-service] starting on port ${env.PORT}…`);
+console.log(`[agentside] starting on port ${env.PORT}…`);
 const server = serve(
   { fetch: app.fetch, port: env.PORT },
   (info) => {
-    console.log(`[command-service] listening on http://localhost:${info.port}`);
+    console.log(`[agentside] listening on http://localhost:${info.port}`);
   },
 );
 

@@ -14,7 +14,7 @@ export {
 export {
   CircuitBreaker,
   CircuitOpenError,
-  atsApiCircuitBreaker,
+  appApiCircuitBreaker,
   gradientCircuitBreaker,
   type tCircuitBreakerState,
   type iCircuitBreakerConfig,

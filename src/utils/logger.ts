@@ -60,7 +60,7 @@ export function createLogger(component: string) {
     const entry: iLogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      service: 'command-service',
+      service: 'agentside',
       component,
       message,
     };

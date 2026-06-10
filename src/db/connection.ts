@@ -1,6 +1,6 @@
 /**
  * MongoDB Connection Management
- * Handles connection lifecycle for the command service
+ * Handles connection lifecycle for agentside
  */
 
 import mongoose from 'mongoose';

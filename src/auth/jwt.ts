@@ -1,6 +1,6 @@
 /**
  * JWT Authentication Utilities
- * Soft authentication for command-service
+ * Soft authentication for agentside
  */
 
 import jwt from 'jsonwebtoken';

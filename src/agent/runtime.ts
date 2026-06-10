@@ -3,7 +3,7 @@
  *
  * One Agent per active (sessionId × socket) pair. The runtime:
  *   1. Constructs the skill-aware system prompt
- *   2. Builds the tool list bound to an AtsClient (service auth + company)
+ *   2. Builds the tool list bound to an AppApiClient (service auth + company)
  *   3. Loads prior messages from Mongo (honoring compaction)
  *   4. Wires transformContext → compaction.maybeCompact
  *   5. Wires beforeToolCall / afterToolCall hooks
@@ -127,7 +127,7 @@ export async function buildAgent(opts: iBuildAgentOptions): Promise<iBuiltAgent>
   };
 
   const tools = buildTools({
-    apiKey: env.ATS_API_KEY,
+    apiKey: env.APP_API_KEY,
     actAsUserId: opts.userId,
     companyId: opts.companyId,
     requestId: opts.sessionId,

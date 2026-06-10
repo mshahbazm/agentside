@@ -1,8 +1,8 @@
 /**
  * Auth token payload.
  *
- * Inlined from the host app's JWT contract when agentside was extracted from
- * the Cuee monorepo. The agent backend only relies on `sub` (user id) and
+ * The JWT your frontend presents at WebSocket upgrade. Adjust the optional
+ * claims to match your token. The agent backend only relies on `sub` (user id) and
  * `companyId` (tenant); everything else is passed through untouched.
  */
 

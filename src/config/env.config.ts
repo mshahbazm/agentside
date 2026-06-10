@@ -1,9 +1,8 @@
 /**
- * Environment configuration for the command service.
+ * Environment configuration for agentside.
  *
- * Trimmed after the pi-mono port. Dead config from the old scout/worker
- * architecture (SCOUT_*, COMMAND_WORKER_*, CONVERSATION_*, COMMAND_JOB_*) was
- * removed — everything below is actively consumed somewhere in src/.
+ * Every variable below is actively consumed somewhere in src/. When adding a
+ * new variable, document it in .env.example and the README env table.
  */
 
 import 'dotenv/config';
@@ -12,6 +11,9 @@ interface iEnvConfig {
   // Server
   PORT: number;
   NODE_ENV: 'development' | 'production' | 'test';
+
+  // App identity (used in the system prompt)
+  APP_NAME: string;
 
   // MongoDB
   MONGODB_URI: string;
@@ -24,22 +26,25 @@ interface iEnvConfig {
   REDIS_TLS: boolean;
   REDIS_PREFIX: string;
 
-  // ATS URLs
-  PRIVATE_ATS_API_URL: string;
-  ATS_FRONTEND_URL: string;
-  ATS_ADMIN_URL: string;
+  // Your app's API — the backend the agent calls tools against
+  APP_API_URL: string;
+  /** Service key sent as x-internal-key on every tool request. */
+  APP_API_KEY: string;
+
+  /** Comma-separated list of allowed CORS origins (your frontend URLs). */
+  CORS_ORIGINS: string[];
 
   // Auth
+  /** Secret used to verify the JWT the frontend presents at WS upgrade. */
   AUTH_SECRET: string;
-  ATS_API_KEY: string;
 
   // LLM (pi-ai)
-  /** Model selector in "provider/model-id" format, e.g. "digitalocean/alibaba-qwen3-32b". */
+  /** Model selector in "provider/model-id" format, e.g. "anthropic/claude-sonnet-4-6". */
   LLM_MODEL: string;
   /** API key for the selected LLM provider. */
   LLM_KEY: string;
 
-  // Rate limiting (company + user level)
+  // Rate limiting (tenant + user level)
   RATE_LIMIT_SOFT_MAX: number;
   RATE_LIMIT_HARD_MAX: number;
   RATE_LIMIT_WINDOW_MS: number;
@@ -47,13 +52,13 @@ interface iEnvConfig {
   RATE_LIMIT_USER_HARD_MAX: number;
   RATE_LIMIT_USER_WINDOW_MS: number;
 
-  // ATS-API request tuning (used by tools/shared/ats-client.ts)
-  EXECUTOR_REQUEST_TIMEOUT_MS: number;
-  EXECUTOR_MAX_RETRIES: number;
+  // App-API request tuning (used by tools/shared/api-client.ts)
+  API_REQUEST_TIMEOUT_MS: number;
+  API_MAX_RETRIES: number;
 
   /**
    * When true, `src/agent/event-logger.ts` emits one line per AgentEvent
-   * (agent_start, tool_start, tool_end, message_end, ...) to stdout so we can
+   * (agent_start, tool_start, tool_end, message_end, ...) to stdout so you can
    * trace what the agent actually did in a given turn. Off by default — turn
    * on in dev via `VERBOSE_AGENT_LOG=true` in .env.
    */
@@ -96,9 +101,23 @@ function getNodeEnv(): 'development' | 'production' | 'test' {
   return value as 'development' | 'production' | 'test';
 }
 
+function getCorsOrigins(): string[] {
+  const raw = getRequiredEnv('CORS_ORIGINS');
+  const origins = raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (origins.length === 0) {
+    throw new Error('CORS_ORIGINS must contain at least one origin (comma-separated).');
+  }
+  return origins;
+}
+
 export const env: iEnvConfig = {
   PORT: getNumericEnv('PORT', 3005),
   NODE_ENV: getNodeEnv(),
+
+  APP_NAME: getOptionalEnv('APP_NAME', 'this application'),
 
   MONGODB_URI: getRequiredEnv('MONGODB_URI'),
 
@@ -107,14 +126,14 @@ export const env: iEnvConfig = {
   REDIS_PASSWORD: process.env.REDIS_PASSWORD,
   REDIS_USER: getOptionalEnv('REDIS_USER', 'default'),
   REDIS_TLS: getBooleanEnv('REDIS_TLS', false),
-  REDIS_PREFIX: getOptionalEnv('REDIS_PREFIX', 'cmd:'),
+  REDIS_PREFIX: getOptionalEnv('REDIS_PREFIX', 'agentside:'),
 
-  PRIVATE_ATS_API_URL: getRequiredEnv('PRIVATE_ATS_API_URL'),
-  ATS_FRONTEND_URL: getRequiredEnv('ATS_FRONTEND_URL'),
-  ATS_ADMIN_URL: getRequiredEnv('ATS_ADMIN_URL'),
+  APP_API_URL: getRequiredEnv('APP_API_URL'),
+  APP_API_KEY: getRequiredEnv('APP_API_KEY'),
+
+  CORS_ORIGINS: getCorsOrigins(),
 
   AUTH_SECRET: getRequiredEnv('AUTH_SECRET'),
-  ATS_API_KEY: getRequiredEnv('ATS_API_KEY'),
 
   LLM_MODEL: getRequiredEnv('LLM_MODEL'),
   LLM_KEY: getRequiredEnv('LLM_KEY'),
@@ -126,12 +145,12 @@ export const env: iEnvConfig = {
   RATE_LIMIT_USER_HARD_MAX: getNumericEnv('RATE_LIMIT_USER_HARD_MAX', 20),
   RATE_LIMIT_USER_WINDOW_MS: getNumericEnv('RATE_LIMIT_USER_WINDOW_MS', 60_000),
 
-  EXECUTOR_REQUEST_TIMEOUT_MS: getNumericEnv('EXECUTOR_REQUEST_TIMEOUT_MS', 30_000),
-  EXECUTOR_MAX_RETRIES: getNumericEnv('EXECUTOR_MAX_RETRIES', 3),
+  API_REQUEST_TIMEOUT_MS: getNumericEnv('API_REQUEST_TIMEOUT_MS', 30_000),
+  API_MAX_RETRIES: getNumericEnv('API_MAX_RETRIES', 3),
 
   VERBOSE_AGENT_LOG: getBooleanEnv('VERBOSE_AGENT_LOG', false),
 };
 
 if (env.NODE_ENV === 'development') {
-  console.log('[env] ✅ command-service environment validated');
+  console.log('[env] ✅ agentside environment validated');
 }

@@ -1,10 +1,10 @@
 /**
- * Factory for building `AgentTool` wrappers around ats-api HTTP endpoints.
+ * Factory for building `AgentTool` wrappers around your app's HTTP endpoints.
  *
  * Given a tool name, HTTP method, path template, TypeBox schema, and description,
  * this returns an `AgentTool` whose `execute` fills the path placeholders from
  * the validated arguments, sends body / query as appropriate, and returns the
- * parsed ats-api response as tool content + details.
+ * parsed API response as tool content + details.
  *
  * This factory handles the common case. Tools that need custom behavior
  * (client-side UI blocks, response post-processing, multi-call flows) are
@@ -13,7 +13,7 @@
 
 import { type Static, type TSchema } from 'typebox';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
-import type { AtsClient } from './ats-client';
+import type { AppApiClient } from './api-client';
 
 export type tHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -42,12 +42,12 @@ export interface iHttpToolOptions<TSchema_ extends TSchema> {
  * Build an AgentTool from a declarative HTTP route definition.
  *
  * `buildTools(ctx)` composes a flat AgentTool[] by calling this factory once
- * per endpoint, passing the per-request `AtsClient` instance. The client
+ * per endpoint, passing the per-request `AppApiClient` instance. The client
  * carries the service auth + companyId, so every tool created for a given
  * request is scoped to that request.
  */
 export function httpTool<TSchema_ extends TSchema>(
-  ats: AtsClient,
+  api: AppApiClient,
   opts: iHttpToolOptions<TSchema_>,
 ): AgentTool<TSchema_> {
   return {
@@ -60,39 +60,35 @@ export function httpTool<TSchema_ extends TSchema>(
         throw new Error('Aborted');
       }
       const args = params as Record<string, unknown>;
-      const { path, remaining } = ats.fillPath(opts.path, args);
+      const { path, remaining } = api.fillPath(opts.path, args);
 
-      // Inject companyId into write-method bodies. ats-api validates against
-      // a zod schema that requires companyId in the body even when the path
-      // already contains it (legacy of how the old scout's executor extracted
-      // companyId from the user's JWT and prepended it to every payload). We
-      // already have the trusted companyId on `ats.companyId` (set from the
-      // verified WebSocket auth in `runtime.ts`), so we don't need to ask
-      // ats-api for it — just attach it before sending.
-      //
-      // Only applies to POST/PUT/PATCH; GET passes `remaining` as query params
-      // and DELETE has no body. The LLM never sees this field — it's not in
-      // the TypeBox schema, so the model can't override it.
+      // Inject the trusted companyId into write-method bodies. Many backends
+      // validate a tenant id in the payload even when the path already
+      // contains it. We already hold the verified companyId on
+      // `api.companyId` (set from the authenticated WebSocket in runtime.ts),
+      // so we attach it server-side. The LLM never sees this field — it's not
+      // in the TypeBox schema, so the model can't override it. Remove this if
+      // your API doesn't expect a tenant id in bodies.
       const isWrite =
         opts.method === 'POST' || opts.method === 'PUT' || opts.method === 'PATCH';
-      const body = isWrite ? { companyId: ats.companyId, ...remaining } : remaining;
+      const body = isWrite ? { companyId: api.companyId, ...remaining } : remaining;
 
       let result: unknown;
       switch (opts.method) {
         case 'GET':
-          result = await ats.get(path, remaining);
+          result = await api.get(path, remaining);
           break;
         case 'POST':
-          result = await ats.post(path, body);
+          result = await api.post(path, body);
           break;
         case 'PUT':
-          result = await ats.put(path, body);
+          result = await api.put(path, body);
           break;
         case 'PATCH':
-          result = await ats.patch(path, body);
+          result = await api.patch(path, body);
           break;
         case 'DELETE':
-          result = await ats.delete(path);
+          result = await api.delete(path);
           break;
       }
 

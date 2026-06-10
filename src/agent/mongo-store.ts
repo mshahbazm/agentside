@@ -18,7 +18,7 @@
  */
 
 import type { AgentEvent, AgentMessage } from '@mariozechner/pi-agent-core';
-import { CommandSessionEntry, CommandSessionHeader } from '../db/models/command-session';
+import { AgentSessionEntry, AgentSessionHeader } from '../db/models/agent-session';
 import { COMPACTION_SUMMARY_PREFIX, COMPACTION_SUMMARY_SUFFIX } from '../compaction';
 
 export interface iMongoStoreOptions {
@@ -82,7 +82,7 @@ export class MongoSessionStore {
    * findOneAndUpdate with upsert.
    */
   async ensureHeader(origin?: Record<string, unknown>, source: 'web' | 'slack' | 'teams' | 'email' = 'web'): Promise<void> {
-    await CommandSessionHeader.findOneAndUpdate(
+    await AgentSessionHeader.findOneAndUpdate(
       { sessionId: this.sessionId },
       {
         $setOnInsert: {
@@ -105,7 +105,7 @@ export class MongoSessionStore {
    * first-class transcript items.
    */
   async loadSession(): Promise<iLoadedSession> {
-    const entries = await CommandSessionEntry.find({
+    const entries = await AgentSessionEntry.find({
       sessionId: this.sessionId,
       companyId: this.companyId,
       userId: this.userId,
@@ -174,7 +174,7 @@ export class MongoSessionStore {
    * full rationale).
    */
   private async appendEntry(type: string, payload: unknown): Promise<void> {
-    const entry = new CommandSessionEntry({
+    const entry = new AgentSessionEntry({
       sessionId: this.sessionId,
       companyId: this.companyId,
       userId: this.userId,
@@ -186,7 +186,7 @@ export class MongoSessionStore {
     await entry.save();
 
     // Bump the header `updatedAt` so list queries order correctly.
-    await CommandSessionHeader.updateOne(
+    await AgentSessionHeader.updateOne(
       { sessionId: this.sessionId },
       { $set: { updatedAt: new Date() } },
     );
@@ -258,7 +258,7 @@ export async function listSessionsForUser(
   userId: string,
   limit = 30,
 ): Promise<Array<{ sessionId: string; title?: string; updatedAt: Date; origin?: unknown }>> {
-  const headers = await CommandSessionHeader.find({ companyId, userId })
+  const headers = await AgentSessionHeader.find({ companyId, userId })
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();

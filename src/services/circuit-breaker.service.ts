@@ -2,7 +2,7 @@
  * Circuit Breaker Service
  *
  * Implements the circuit breaker pattern to prevent cascading failures
- * when downstream services (like ats-api) are unavailable.
+ * when downstream services (like your app API) are unavailable.
  *
  * States:
  * - CLOSED: Normal operation, requests pass through
@@ -253,10 +253,10 @@ export class CircuitBreaker {
 }
 
 /**
- * Singleton circuit breaker for ats-api calls
+ * Singleton circuit breaker for app-API calls
  */
-export const atsApiCircuitBreaker = new CircuitBreaker({
-  name: 'ats-api',
+export const appApiCircuitBreaker = new CircuitBreaker({
+  name: 'app-api',
   failureThreshold: 5,
   resetTimeout: 30000, // 30 seconds
   successThreshold: 2,

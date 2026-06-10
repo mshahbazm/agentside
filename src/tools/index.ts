@@ -1,27 +1,25 @@
 /**
- * Tool registry for the command-service agent.
+ * Tool registry for the agentside agent.
  *
  * `buildTools(ctx)` is called once per agent run (inside buildAgent) and
  * returns a flat AgentTool[] composed of:
  *   - read_skill (builtin)
- *   - ats HTTP tools (jobs, applicants, email templates, scorecards, ...)
- *   - command_* consolidated helpers
+ *   - your app's HTTP tools (see app-tools.ts — the main extension point)
  *   - client-side UI tools (present_choices, confirm_action, ...)
  *
- * Each ats tool is constructed with the current request's AtsClient, so it
+ * Each HTTP tool is constructed with the current request's AppApiClient, so it
  * carries the service auth + companyId for the lifetime of the run.
  */
 
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { tCustomMessage } from '../types/custom-messages';
-import { AtsClient, type iAtsClientOptions } from './shared/ats-client';
+import { AppApiClient, type iAppApiClientOptions } from './shared/api-client';
 import { readSkillTool } from './builtin/read-skill';
-import { buildAtsTools } from './ats-tools';
-import { buildCommandHelperTools } from './command-helpers';
+import { buildAppTools } from './app-tools';
 import { buildUiTools, UI_TOOL_NAMES } from './ui-tools';
 
-export { AtsClient, UI_TOOL_NAMES };
-export type { iAtsClientOptions };
+export { AppApiClient, UI_TOOL_NAMES };
+export type { iAppApiClientOptions };
 
 export interface iBuildToolsContext {
   apiKey: string;
@@ -33,7 +31,7 @@ export interface iBuildToolsContext {
 }
 
 export function buildTools(ctx: iBuildToolsContext): AgentTool<any>[] {
-  const ats = new AtsClient({
+  const api = new AppApiClient({
     apiKey: ctx.apiKey,
     actAsUserId: ctx.actAsUserId,
     companyId: ctx.companyId,
@@ -42,8 +40,7 @@ export function buildTools(ctx: iBuildToolsContext): AgentTool<any>[] {
 
   return [
     readSkillTool,
-    ...buildAtsTools(ats),
-    ...buildCommandHelperTools(ats),
+    ...buildAppTools(api),
     ...buildUiTools({ emitCustomMessage: ctx.emitCustomMessage }),
   ];
 }

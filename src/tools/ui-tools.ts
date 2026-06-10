@@ -1,17 +1,16 @@
 /**
  * Client-side UI tools.
  *
- * These tools don't hit ats-api. They build a UI block (see
+ * These tools never call your API. They build a UI block (see
  * `src/types/ui-block.types.ts` for shapes), emit it as a pi-agent-core
  * custom message via `ctx.emitCustomMessage`, and return a plain text
  * acknowledgement as the `toolResult`. The LLM sees only the text ack;
  * the frontend sees the custom message and renders the rich UI.
  *
- * The `afterToolCall` hook in `src/agent/hooks.ts` still aborts the agent
- * run when a UI tool fires (`UI_TOOL_NAMES`) so the loop unwinds after
- * `turn_end` and the frontend can wait for the user's click. Emitting the
- * custom message before returning keeps `message_end` for the uiBlock
- * ordered *before* `tool_execution_end` / tool_result in the event stream.
+ * Tools listed in `UI_TOOL_NAMES` end the turn waiting for a user click —
+ * the user's choice arrives as the next user message. Emitting the custom
+ * message before returning keeps `message_end` for the uiBlock ordered
+ * *before* `tool_execution_end` / tool_result in the event stream.
  */
 
 import { Type, type Static } from 'typebox';
@@ -22,7 +21,6 @@ import type {
   iActionButtonsBlock,
   iConfirmBlock,
   iSimpleListBlock,
-  iInterviewQuestionsBlock,
   iContentDiffBlock,
   iNavigateBlock,
 } from '../types/ui-block.types';
@@ -34,7 +32,6 @@ export const UI_TOOL_NAMES: ReadonlySet<string> = new Set([
   'present_choices',
   'confirm_action',
   'present_content_confirmation',
-  'present_interview_questions',
   'show_simple_list',
 ]);
 
@@ -198,7 +195,6 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
       | iActionButtonsBlock
       | iConfirmBlock
       | iSimpleListBlock
-      | iInterviewQuestionsBlock
       | iContentDiffBlock
       | iNavigateBlock,
     toolCallId: string,
@@ -399,66 +395,6 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
   };
 
   // ==========================================================================
-  // present_interview_questions
-  // ==========================================================================
-  const presentInterviewQuestionsParams = Type.Object({
-    headerLabel: Type.String(),
-    questions: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        text: Type.String(),
-        source: Type.Union([Type.Literal('existing'), Type.Literal('ai')]),
-        status: Type.Optional(
-          Type.Union([Type.Literal('keep'), Type.Literal('removed')]),
-        ),
-        aiReason: Type.Optional(Type.String()),
-      }),
-    ),
-    confirmLabel: Type.Optional(Type.String()),
-    cancelLabel: Type.Optional(Type.String()),
-    deferredAction: deferredActionSchema,
-  });
-
-  const presentInterviewQuestionsTool: AgentTool<typeof presentInterviewQuestionsParams> = {
-    name: 'present_interview_questions',
-    label: 'Present interview questions',
-    description:
-      'Show interview questions to the user in a review panel for confirmation. Only include questions you want to keep. Returns the confirmed question list when the user approves. The turn ends after this tool runs.',
-    parameters: presentInterviewQuestionsParams,
-    prepareArguments: (i) => prepareCommonUiArgs(i) as Static<typeof presentInterviewQuestionsParams>,
-    async execute(toolCallId, params: Static<typeof presentInterviewQuestionsParams>) {
-      const block: iInterviewQuestionsBlock = {
-        id: uuidv4(),
-        type: 'interview_questions',
-        title: params.headerLabel,
-        headerLabel: params.headerLabel,
-        questions: params.questions.map((q) => ({
-          id: q.id,
-          text: q.text,
-          source: q.source,
-          status: q.status ?? 'keep',
-          aiReason: q.aiReason,
-        })),
-        confirmLabel: params.confirmLabel ?? 'Confirm & Save',
-        cancelLabel: params.cancelLabel ?? 'Cancel',
-        toolCallId,
-        toolName: 'present_interview_questions',
-        deferredAction: params.deferredAction,
-      };
-      await emitBlock(block, toolCallId);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: 'Presented interview questions for review. Waiting for user confirmation.',
-          },
-        ],
-        details: {},
-      };
-    },
-  };
-
-  // ==========================================================================
   // show_simple_list
   // ==========================================================================
   const showSimpleListParams = Type.Object({
@@ -648,20 +584,10 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
   // navigate_to).
   // ==========================================================================
   const refreshResourceParams = Type.Object({
-    resource: Type.Union(
-      [
-        Type.Literal('interview'),
-        Type.Literal('job'),
-        Type.Literal('scorecard'),
-        Type.Literal('email-template'),
-        Type.Literal('workflow-template'),
-        Type.Literal('job-description-template'),
-      ],
-      {
-        description:
-          'Resource kind the user-facing editor for this entity should refetch. Pick the kind that matches what you just mutated — "interview" covers both job-stage interviews and standalone interviews.',
-      },
-    ),
+    resource: Type.String({
+      description:
+        'Resource kind the user-facing editor for this entity should refetch. Pick the kind that matches what you just mutated. Your frontend decides which views each kind maps to.',
+    }),
     id: Type.Optional(
       Type.String({
         description: 'UUID of the entity, if you have it from the tool result.',
@@ -678,7 +604,7 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
     name: 'refresh_resource',
     label: 'Refresh resource',
     description:
-      'Tell the user-facing UI to refetch a resource you just modified. Call this immediately after a successful mutating tool (e.g. after `stage_interview_update`, `standalone_interview_update`, `scorecard_update`, …). Silent — no UI is rendered in chat; only the relevant editor on the user\'s page reloads its data. Pass `id` and/or `code` if you have them — pass either, both, or neither.',
+      'Tell the user-facing UI to refetch a resource you just modified. Call this immediately after a successful mutating tool. Silent — no UI is rendered in chat; only the relevant editor on the user\'s page reloads its data. Pass `id` and/or `code` if you have them — pass either, both, or neither.',
     parameters: refreshResourceParams,
     async execute(_toolCallId, params: Static<typeof refreshResourceParams>) {
       await ctx.emitCustomMessage({
@@ -699,7 +625,6 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
     presentChoicesTool,
     confirmActionTool,
     presentContentConfirmationTool,
-    presentInterviewQuestionsTool,
     showSimpleListTool,
     navigateToTool,
     refreshResourceTool,

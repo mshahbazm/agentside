@@ -451,7 +451,7 @@ export function setupWebSocket(app: Hono) {
           sendToConnection(socketId, {
             type: 'connected',
             socketId,
-            message: 'Connected to command service',
+            message: 'Connected to agentside',
           });
 
           console.log(`[ws] client connected. total: ${getConnectionCount()}`);

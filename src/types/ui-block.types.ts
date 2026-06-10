@@ -3,7 +3,7 @@
  * Interactive UI elements rendered in AI chat responses
  */
 
-export type tUIBlockType = 'select_one' | 'action_buttons' | 'navigate' | 'summary_card' | 'confirm' | 'simple_list' | 'interview_questions' | 'content_diff';
+export type tUIBlockType = 'select_one' | 'action_buttons' | 'navigate' | 'summary_card' | 'confirm' | 'simple_list' | 'content_diff';
 
 export interface iUIBlockOption {
   /** Machine-readable value (e.g., location code "3") */
@@ -62,11 +62,13 @@ export interface iNavigateBlock extends iUIBlockBase {
 /** Summary card block — displays structured data inline */
 export interface iSummaryCardBlock extends iUIBlockBase {
   type: 'summary_card';
-  cardType: 'applicant' | 'job' | 'stats';
+  /** App-defined card kind — your frontend decides how each kind renders. */
+  cardType: string;
   subtitle?: string;
   fields: Array<{ label: string; value: string; type: 'text' | 'badge' | 'score' | 'link' }>;
   actions?: iUIBlockAction[];
-  entityRef?: { type: 'applicant' | 'job' | 'application'; code: number; jobCode?: number };
+  /** App-defined entity reference your frontend can use for linking. */
+  entityRef?: { type: string; code: number; parentCode?: number };
 }
 
 /** Confirm block — structured confirmation before actions */
@@ -117,24 +119,6 @@ export interface iSimpleListBlock extends iUIBlockBase {
   actions?: iUIBlockAction[];
 }
 
-/** A single interview question for interactive review */
-export interface iInterviewQuestion {
-  id: string;
-  text: string;
-  source: 'existing' | 'ai' | 'manual';
-  status: 'keep' | 'removed';
-  aiReason?: string;
-}
-
-/** Interview questions block — interactive question review panel */
-export interface iInterviewQuestionsBlock extends iUIBlockBase {
-  type: 'interview_questions';
-  headerLabel: string;
-  questions: iInterviewQuestion[];
-  confirmLabel: string;
-  cancelLabel: string;
-}
-
 /** Content diff block — visual before/after text diff with Apply/Discard, or new content preview with Create/Cancel */
 export interface iContentDiffBlock extends iUIBlockBase {
   type: 'content_diff';
@@ -152,4 +136,4 @@ export interface iContentDiffBlock extends iUIBlockBase {
   cancelLabel?: string;
 }
 
-export type tUIBlock = iSelectOneBlock | iActionButtonsBlock | iNavigateBlock | iSummaryCardBlock | iConfirmBlock | iSimpleListBlock | iInterviewQuestionsBlock | iContentDiffBlock;
+export type tUIBlock = iSelectOneBlock | iActionButtonsBlock | iNavigateBlock | iSummaryCardBlock | iConfirmBlock | iSimpleListBlock | iContentDiffBlock;

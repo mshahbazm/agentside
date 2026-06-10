@@ -1,13 +1,13 @@
 /**
- * Mongo schema for the new append-only command session log.
+ * Mongo schema for the append-only agent session log.
  *
  * Each document represents one entry in a session. Sessions are identified by
  * `sessionId` and scoped by `(companyId, userId)`. Entries are ordered by
  * `timestamp`. On load we filter out nothing — we rebuild `AgentMessage[]` from
  * the persisted entries and hand them to the Agent.
  *
- * This replaces `scout_conversations` entirely. Old data stays untouched and
- * TTL-expires over 90 days.
+ * Entries
+ * TTL-expire after 90 days.
  */
 
 import mongoose, { Schema, type Document, type Model } from 'mongoose';
@@ -18,7 +18,7 @@ export type tCommandEntryType =
   | 'tool_result'
   | 'compaction';
 
-export interface iCommandSessionEntry extends Document {
+export interface iAgentSessionEntry extends Document {
   sessionId: string;
   companyId: string;
   userId: string;
@@ -51,7 +51,7 @@ export interface iCommandSessionEntry extends Document {
   updatedAt: Date;
 }
 
-export interface iCommandSessionHeader extends Document {
+export interface iAgentSessionHeader extends Document {
   sessionId: string;
   companyId: string;
   userId: string;
@@ -64,7 +64,7 @@ export interface iCommandSessionHeader extends Document {
   updatedAt: Date;
 }
 
-const EntrySchema = new Schema<iCommandSessionEntry>(
+const EntrySchema = new Schema<iAgentSessionEntry>(
   {
     sessionId: { type: String, required: true },
     companyId: { type: String, required: true },
@@ -73,7 +73,7 @@ const EntrySchema = new Schema<iCommandSessionEntry>(
     seq: { type: Number, required: true },
     timestamp: { type: Date, required: true, default: () => new Date() },
     // Stored as a JSON-stringified blob. See the `payload` JSDoc on
-    // `iCommandSessionEntry` for the rationale.
+    // `iAgentSessionEntry` for the rationale.
     payload: { type: String, required: true },
   },
   { timestamps: true },
@@ -86,7 +86,7 @@ EntrySchema.index({ companyId: 1, userId: 1, updatedAt: -1 });
 // 90-day TTL based on updatedAt
 EntrySchema.index({ updatedAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
-const SessionHeaderSchema = new Schema<iCommandSessionHeader>(
+const SessionHeaderSchema = new Schema<iAgentSessionHeader>(
   {
     sessionId: { type: String, required: true, unique: true },
     companyId: { type: String, required: true },
@@ -101,10 +101,10 @@ const SessionHeaderSchema = new Schema<iCommandSessionHeader>(
 SessionHeaderSchema.index({ companyId: 1, userId: 1, updatedAt: -1 });
 SessionHeaderSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
-export const CommandSessionEntry: Model<iCommandSessionEntry> =
-  mongoose.models.CommandSessionEntry ||
-  mongoose.model<iCommandSessionEntry>('CommandSessionEntry', EntrySchema, 'command_session_entries');
+export const AgentSessionEntry: Model<iAgentSessionEntry> =
+  mongoose.models.AgentSessionEntry ||
+  mongoose.model<iAgentSessionEntry>('AgentSessionEntry', EntrySchema, 'agent_session_entries');
 
-export const CommandSessionHeader: Model<iCommandSessionHeader> =
-  mongoose.models.CommandSessionHeader ||
-  mongoose.model<iCommandSessionHeader>('CommandSessionHeader', SessionHeaderSchema, 'command_sessions');
+export const AgentSessionHeader: Model<iAgentSessionHeader> =
+  mongoose.models.AgentSessionHeader ||
+  mongoose.model<iAgentSessionHeader>('AgentSessionHeader', SessionHeaderSchema, 'agent_sessions');

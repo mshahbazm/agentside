@@ -8,7 +8,7 @@ import { env } from '../config/env.config';
 /**
  * Default timeout from env or 30 seconds
  */
-const DEFAULT_TIMEOUT_MS = env.EXECUTOR_REQUEST_TIMEOUT_MS || 30000;
+const DEFAULT_TIMEOUT_MS = env.API_REQUEST_TIMEOUT_MS || 30000;
 
 /**
  * Fetch with automatic timeout
@@ -16,7 +16,7 @@ const DEFAULT_TIMEOUT_MS = env.EXECUTOR_REQUEST_TIMEOUT_MS || 30000;
  *
  * @param url - URL to fetch
  * @param options - Standard fetch options
- * @param timeoutMs - Timeout in milliseconds (default: EXECUTOR_REQUEST_TIMEOUT_MS or 30s)
+ * @param timeoutMs - Timeout in milliseconds (default: API_REQUEST_TIMEOUT_MS or 30s)
  * @returns Promise<Response>
  * @throws Error with 'Request timed out' message if timeout exceeded
  */

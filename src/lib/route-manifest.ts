@@ -1,108 +1,37 @@
 /**
- * @locked
- * This file is the authoritative mapping between `page` ids used by the AI
- * and concrete frontend URL patterns served by `ats-app`'s TanStack router.
- * Get user approval before modifying:
- *   - src/lib/route-manifest.ts (this file)
- *   - src/skills/navigate/SKILL.md (the prose mirror the LLM reads)
+ * Frontend route manifest — EXTENSION POINT.
  *
- * Why locked: `PAGE_PATTERNS` and the `navigate` skill body must stay in
- * lockstep. If a row is added, renamed, or removed in one place but not the
- * other, the LLM will either fail to navigate (unknown id → tool throws) or
- * silently send users to a wrong URL. Both are hard to catch in review.
- * When touching routes in `ats-app`, update BOTH this file AND the skill
- * page table in the same change, and double-check against the actual router
- * files in `packages/ats-app/src/routes/_protected/_with-sidebar/**`.
+ * Single source of truth for the set of pages the agent is allowed to
+ * navigate the user to. Consumed by the `navigate_to` tool in
+ * `src/tools/ui-tools.ts`. Replace the sample entries below with your
+ * frontend's routes.
  *
- * ---
- *
- * Frontend route manifest for the ats-app.
- *
- * Single source of truth for the set of pages the AI is allowed to navigate
- * the user to. Consumed by the `navigate_to` tool in `src/tools/ui-tools.ts`
- * and mirrored (in prose form) by `src/skills/navigate/SKILL.md`.
- *
- * Each entry maps a kebab-case `page` id → a TanStack Router URL pattern
- * using `:param` placeholders. Adding a new route is:
+ * Each entry maps a kebab-case `page` id → a URL pattern using `:param`
+ * placeholders. Adding a new route is:
  *   1. Append an entry here.
- *   2. Add a matching row to the navigate skill's page table.
+ *   2. If you keep a navigation skill (recommended once the list grows),
+ *      add a matching row to its page table — the manifest and the skill's
+ *      prose must stay in lockstep, or the LLM will navigate to wrong/
+ *      unknown pages.
  *   3. Restart the service (skills are eager-loaded at boot).
  *
- * Deliberately excluded — do not add back without consideration:
- *   - Creation forms (`/workspace/locations/new`, `/workspace/roles/new`,
- *     `/templates/scorecards/new`) — the AI should use `command_*_create`
+ * Tips from production use:
+ *   - Don't add creation-form routes — let the agent create entities via
  *     tools instead of dumping users into empty forms.
- *   - Unauthenticated surfaces (`/login`, `/register/:inviteCode`,
- *     `/verify`, `/join-team`, `/subscribe`, `/onboard`) — command-service
- *     only runs for authenticated, onboarded users; these are dead ends.
- *   - Admin-only flows (`/candidates/privacy`,
- *     `/candidates/import/:importId/review`) — not end-user navigation.
- *   - `/templates/jd` — unclear purpose; add explicitly when a skill needs it.
+ *   - Don't add unauthenticated surfaces (login, signup) — the agent only
+ *     runs for authenticated users; those are dead ends.
  */
 
 export const PAGE_PATTERNS: Record<string, string> = {
-  // Home + top-level navigation
+  // Samples — replace with your app's routes.
   'home': '/',
-  'jobs': '/jobs',
-  'candidates': '/candidates',
-  'interviews': '/interviews',
-  'companies': '/companies',
-  'contacts': '/contacts',
-  'chat': '/chat',
-
-  // Templates
-  'workflow-templates': '/templates/workflows',
-  'email-templates': '/templates/email',
-  'scorecard-templates': '/templates/scorecards',
-
-  // Workspace
-  'departments': '/workspace/departments',
-  'locations': '/workspace/locations',
-  'roles': '/workspace/roles',
-  'team': '/workspace/team',
-  'compliance': '/workspace/compliance',
-  'billing': '/workspace/billing',
-  'organization': '/workspace/organization',
-
-  // Settings
-  'settings-profile': '/settings/profile',
-  'settings-preferences': '/settings/preferences',
-  'settings-integrations': '/settings/integrations',
-
-  // Job sub-pages
-  'job-detail': '/jobs/:code',
-  'job-refine': '/jobs/:code/refine',
-  'job-refine-workflow': '/jobs/:code/refine/workflow',
-  'job-refine-application-form': '/jobs/:code/refine/application-form',
-  'job-board': '/jobs/:code/board',
-  'job-table': '/jobs/:code/table-view',
-  'job-pipeline': '/jobs/:code/live-list',
-  'job-analytics': '/jobs/:code/analytics',
-  'job-distribute': '/jobs/:code/distribute',
-  'job-candidate-detail': '/jobs/:code/candidates/:candidateCode',
-  'job-interview-review': '/jobs/:code/interviews/:interviewId',
-
-  // Template refine
-  'workflow-template-refine': '/templates/workflows/:code/refine',
-  'email-template-refine': '/templates/email/:code/refine',
-  'scorecard-template-refine': '/templates/scorecards/:code/refine',
-
-  // Interview sub-pages
-  'interview-detail': '/interviews/:code',
-  'interview-refine': '/interviews/:code/refine',
-  'interview-candidates': '/interviews/:code/candidates',
-
-  // Workspace sub-pages
-  'location-refine': '/workspace/locations/:code/refine',
-  'role-refine': '/workspace/roles/:code/refine',
-
-  // Company detail
-  'company-detail': '/companies/:code',
+  'settings': '/settings',
+  'item-detail': '/items/:code',
 };
 
 /**
  * Extract the `:param` placeholder names from a URL pattern.
- * e.g. `/jobs/:code/refine` → `['code']`; `/jobs/:code/candidates/:candidateCode` → `['code', 'candidateCode']`.
+ * e.g. `/items/:code/edit` → `['code']`.
  */
 function requiredParamsForPattern(pattern: string): string[] {
   return Array.from(pattern.matchAll(/\/:([a-zA-Z_][a-zA-Z0-9_]*)/g), (m) => m[1]);
@@ -122,8 +51,8 @@ function requiredParamsForPattern(pattern: string): string[] {
  * treated as "not provided" even if the key is present on the `params`
  * object. This matters because the LLM (with `strict: false` on tool
  * schemas) sometimes emits keys with `null` or `""` as placeholders. Without
- * this filter we'd build broken URLs like `/jobs/null/refine` or
- * `/jobs//refine`.
+ * this filter we'd build broken URLs like `/items/null/edit` or
+ * `/items//edit`.
  */
 export function buildNavigationUrl(
   page: string,
@@ -132,7 +61,7 @@ export function buildNavigationUrl(
   const pattern = PAGE_PATTERNS[page];
   if (!pattern) {
     throw new Error(
-      `Unknown page "${page}". Call read_skill("navigate") to see available page ids.`,
+      `Unknown page "${page}". Known pages: ${Object.keys(PAGE_PATTERNS).join(', ')}.`,
     );
   }
 

@@ -1,5 +1,5 @@
 /**
- * Custom AgentMessages for command-service.
+ * Custom AgentMessages for agentside.
  *
  * Follows pi-agent-core's declaration-merging pattern for extending the
  * AgentMessage union with app-specific roles. See
@@ -38,7 +38,7 @@ export interface iRefreshResourceMessage {
   timestamp: number;
 }
 
-/** Union of every custom-message kind command-service can inject into the transcript. */
+/** Union of every custom-message kind agentside can inject into the transcript. */
 export type tCustomMessage = iUIBlockMessage | iRefreshResourceMessage;
 
 declare module '@mariozechner/pi-agent-core' {

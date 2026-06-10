@@ -1,5 +1,5 @@
 /**
- * Context compaction for the command-service agent.
+ * Context compaction for the agentside agent.
  *
  * Derived from pi-mono/packages/coding-agent/src/core/compaction/* but
  * radically trimmed for our use case:

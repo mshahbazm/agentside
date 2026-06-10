@@ -6,7 +6,7 @@ Your users type "create a job posting for a senior React dev and invite Sarah to
 
 Built on [pi-mono](https://github.com/badlogic/pi-mono)'s `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core` — a small, readable agent core — rather than a heavyweight framework.
 
-> ⚠️ **Status: extraction in progress.** This code runs in production inside [Cuee](https://cuee.ai) (an ATS), and was just extracted from that codebase. It works, but tool catalogs, env var names, and the system prompt still reference the original app. See [Adapting it to your app](#adapting-it-to-your-app) for exactly what to swap. Generalization (pluggable auth, bring-your-own-API config) is the current focus.
+> **Status: young but production-proven.** This architecture runs in production inside [Cuee](https://cuee.ai) (an ATS); the core here is app-agnostic and ready to wire up. You plug in your app at four clearly-marked extension points — see [Wiring up your app](#wiring-up-your-app).
 
 ---
 
@@ -68,7 +68,7 @@ The system prompt contains only an XML catalog of skill names + descriptions. Wh
 
 ### Tools: two kinds
 
-- **HTTP tools** (`src/tools/ats-tools.ts`, `command-helpers.ts`) — declarative wrappers over API endpoints: name, description, TypeBox schema, method, path. ~10 lines each. Rate-limited per user+tenant via Redis (soft limit delays, hard limit blocks), wrapped in a circuit breaker, with API errors flattened into LLM-readable strings.
+- **HTTP tools** (`src/tools/app-tools.ts`) — declarative wrappers over your API endpoints: name, description, TypeBox schema, method, path. ~10 lines each. Rate-limited per user+tenant via Redis (soft limit delays, hard limit blocks), wrapped in a circuit breaker, with API errors flattened into LLM-readable strings.
 - **UI tools** (`src/tools/ui-tools.ts`) — no HTTP at all. They emit a typed *UI block* into the transcript as a custom message (`present_choices`, `confirm_action`, `show_simple_list`, `navigate_to`, ...). Your frontend renders the block natively; the user's click comes back as the next user message. `confirm_action` carries a `deferredAction` so approval executes the queued action without another LLM round-trip.
 
 Tool drift is handled, not hoped away: providers ship schemas with `strict: false`, so models occasionally omit nested required fields or invent enum values. `AgentTool.prepareArguments` runs before validation to backfill and coerce (see `prepareCommonUiArgs`).
@@ -116,22 +116,22 @@ Prereqs: [Bun](https://bun.sh), MongoDB, Redis.
 
 ```bash
 bun install
-cp .env.example .env   # set MONGODB_URI, REDIS_*, AUTH_SECRET, your API URL/key, LLM_MODEL + LLM_KEY
+cp .env.example .env   # set MONGODB_URI, REDIS_*, AUTH_SECRET, APP_API_URL/APP_API_KEY, CORS_ORIGINS, LLM_MODEL + LLM_KEY
 bun run dev            # http://localhost:3005, health check at /
 ```
 
 `LLM_MODEL` is a pi-ai selector — `provider/model-id`, e.g. `anthropic/claude-sonnet-4-6` or `openai/gpt-4.1-mini`. Built-in pi-ai providers work out of the box; custom OpenAI-compatible providers get a JSON config in `src/llm/models/` (see `digitalocean.json` for the shape).
 
-## Adapting it to your app
+## Wiring up your app
 
-Honest list of what is still Cuee-specific today, in the order you'd replace it:
+Four extension points, in the order you'd touch them:
 
-1. **Env vars** — `PRIVATE_ATS_API_URL`, `ATS_API_KEY`, `ATS_FRONTEND_URL`, `ATS_ADMIN_URL` are "your API base URL", "your service key", and "allowed CORS origins". Rename pending; semantics already generic.
-2. **System prompt** (`src/agent/system-prompt.ts`) — the base prompt names the original product and its domain. Rewrite ~30 lines for yours.
-3. **Tool catalogs** (`src/tools/ats-tools.ts`, `command-helpers.ts`) — replace with wrappers for your endpoints; each is a small declarative entry. `src/tools/shared/http-tool.ts` and `ats-client.ts` are the reusable machinery.
-4. **Skills** (`src/skills/`) — write your own; the shipped `example` skill documents the format.
-5. **Route manifest** (`src/lib/route-manifest.ts`) — the page-id → URL-pattern table behind `navigate_to`. Replace with your frontend's routes.
-6. **JWT payload shape** (`src/types/auth.types.ts`) — adjust to your token's claims; only `sub` and the tenant id matter.
+1. **Env** — `cp .env.example .env`, set `APP_API_URL` (your API), `APP_API_KEY` (service key your API accepts as `x-internal-key`), `CORS_ORIGINS` (your frontend), `AUTH_SECRET` (verifies your frontend's JWT), `APP_NAME` (used in the agent's identity line), plus MongoDB/Redis/LLM credentials.
+2. **Tools** (`src/tools/app-tools.ts`) — wrap your endpoints; each is a ~10-line declarative `httpTool(...)` entry (a complete commented example is in the file). `shared/http-tool.ts` and `shared/api-client.ts` are the machinery — you shouldn't need to touch them.
+3. **Skills** (`src/skills/`) — write a `SKILL.md` per task your agent should master; the shipped `example` skill documents the format.
+4. **Route manifest** (`src/lib/route-manifest.ts`) — fill the page-id → URL-pattern table behind `navigate_to` with your frontend's routes.
+
+Optional tuning: the agent's persona lives in `src/agent/system-prompt.ts` (generic by default, `APP_NAME`-aware); the JWT claim shape in `src/types/auth.types.ts` only relies on `sub` + `companyId` — adjust the optional claims to your token.
 
 What you should *not* need to touch: the agent runtime, WS server, Mongo store, compaction, rate limiter, circuit breaker, model resolver, skill loader.
 
@@ -153,7 +153,8 @@ src/
 
 ## Roadmap
 
-- [ ] Generic env naming (`APP_API_URL`, `APP_SERVICE_KEY`, ...)
+- [x] Generic env naming (`APP_API_URL`, `APP_API_KEY`, `CORS_ORIGINS`, ...)
+- [x] App-agnostic core (generic prompt, tool template, UI tools, session store)
 - [ ] Pluggable auth (`verifyToken` callback instead of baked-in JWT shape)
 - [ ] Tool catalog as config / OpenAPI generator
 - [ ] Runnable demo app (tiny CRUD API + minimal chat frontend)
