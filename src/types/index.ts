@@ -1,0 +1,24 @@
+/**
+ * Command Service public type exports.
+ *
+ * - `ui-block.types` is the frontend contract for interactive UI blocks.
+ * - `legacy.types` is a DEPRECATED shim of the old `scout_*` WebSocket types,
+ *   kept only so `ats-app` keeps compiling until its own migration to the
+ *   new `agent_event` envelope. Do not add new usages — see the file header.
+ *
+ * `custom-messages.ts` is intentionally NOT re-exported: it contains a
+ * `declare module '@mariozechner/pi-agent-core'` augmentation that is only
+ * meaningful inside command-service (which depends on pi-agent-core).
+ * Re-exporting it — even a single type — would force TS to parse the
+ * augmentation in consumers like ats-app that have no reason to depend on
+ * pi-agent-core and can't resolve the module.
+ *
+ * The plain string-union kind (`tRefreshResourceKind`) lives in its own
+ * `refresh-resource.types.ts` so the frontend can import it without
+ * dragging in the augmentation.
+ */
+
+export * from './auth.types';
+export * from './ui-block.types';
+export * from './legacy.types';
+export type { tRefreshResourceKind } from './refresh-resource.types';
