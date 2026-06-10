@@ -14,7 +14,7 @@ Built on [pi-mono](https://github.com/badlogic/pi-mono)'s `@mariozechner/pi-ai` 
 
 Most "add AI to your app" tooling is either a frontend widget that calls a model directly, or a framework that wants to own your whole stack. agentside takes a narrower position:
 
-- **Backend-only.** A single Bun service (~5k lines you can read in an afternoon). Your frontend subscribes to one WebSocket and renders events however you like.
+- **Backend-only.** A single Bun service (~6k lines you can read in an afternoon). Your frontend subscribes to one WebSocket and renders events however you like.
 - **Your API is the security boundary.** The agent never touches your database. Every tool is a thin HTTP wrapper over your existing API, called with a service key plus an act-as-user header — so your API enforces the same authorization it always has. The LLM cannot escalate privileges, because it was never granted any.
 - **Prompt engineering as files, not code.** Capabilities are markdown `SKILL.md` files the agent loads on demand. Iterating on agent behavior means editing markdown, not redeploying logic.
 

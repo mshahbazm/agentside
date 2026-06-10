@@ -576,8 +576,8 @@ export function buildUiTools(ctx: iUiToolsContext): AgentTool<any>[] {
   //
   // Silent side-channel signal: tells the user-facing UI to refetch a
   // resource the AI just mutated. Emits a `refreshResource` custom message
-  // (declared in src/types/custom-messages.ts); the frontend handles it in
-  // chat.store.ts → invalidateQueriesForResource. No transcript rendering.
+  // (declared in src/types/custom-messages.ts); your frontend listens for it
+  // and invalidates/refetches the matching view. No transcript rendering.
   //
   // NOT in UI_TOOL_NAMES — fire-and-forget, agent loop keeps running so
   // the LLM can write a wrap-up message in the same turn (same pattern as
